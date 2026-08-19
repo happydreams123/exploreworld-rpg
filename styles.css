@@ -1,5 +1,10 @@
+body {
+	margin: 20px;
+}
+
 #gameCanvas {
-    border: 1px solid #ccc;
-    width: 100vw;
-    height: 100vh;
+	display: block;
+	width: 400px;
+	height: 400px;
+	border: 2px solid black;
 }
