@@ -1,10 +1,10 @@
 body {
-	margin: 20px;
+	margin: 0;
+	overflow: hidden; /* Prevents scrollbars. */
 }
 
-#gameCanvas {
-	display: block;
-	width: 400px;
-	height: 400px;
-	border: 2px solid black;
+canvas {
+	display: block; /* Removes default inline spacing */
+	width: 100vw;
+	height: 100vh;
 }
