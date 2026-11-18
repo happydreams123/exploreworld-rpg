@@ -1,7 +1,7 @@
 
 /* =========================================
    EXPLORE-WORLD RPG
-   CAMERA + MOVEMENT SYSTEM V2
+   CONSTANT FOLLOW CAMERA
 ========================================= */
 
 
@@ -10,19 +10,14 @@
 const CONFIG = {
     mapImage: "assets/images/test-world.png",
 
-    playerSize: 25,
+    zoom: 10,
 
-    startingSpeed: 180,
-    minimumSpeed: 60,
-    maximumSpeed: 600,
-    speedChange: 30,
+    playerSize: 6,
 
-    // Minimum visual map scale.
-    // Each 32px checkerboard square becomes 72px.
-    minimumZoom: 2.25,
-
-    // Gives the camera some room to scroll
-    mapOverscan: 1.2
+    startingSpeed: 100,
+    minimumSpeed: 10,
+    maximumSpeed: 1000,
+    speedChange: 10
 };
 
 
@@ -31,14 +26,9 @@ const CONFIG = {
 const canvas = document.getElementById("homeScreen");
 const ctx = canvas.getContext("2d");
 
-ctx.imageSmoothingEnabled = false;
-
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    calculateZoom();
-    clampCamera();
 }
 
 
@@ -52,27 +42,6 @@ const world = {
     loaded: false
 };
 
-let zoom = CONFIG.minimumZoom;
-
-mapImage.onload = function () {
-    world.width = mapImage.naturalWidth;
-    world.height = mapImage.naturalHeight;
-    world.loaded = true;
-
-    // Start player in map center
-    player.x = (world.width - player.size) / 2;
-    player.y = (world.height - player.size) / 2;
-
-    calculateZoom();
-    updateCamera();
-};
-
-mapImage.onerror = function () {
-    console.error("Unable to load test world image:", CONFIG.mapImage);
-};
-
-mapImage.src = CONFIG.mapImage;
-
 
 /* PLAYER */
 
@@ -84,13 +53,33 @@ const player = {
 };
 
 
+mapImage.onload = function () {
+    world.width = mapImage.naturalWidth;
+    world.height = mapImage.naturalHeight;
+
+    world.loaded = true;
+
+    player.x = (world.width - player.size) / 2;
+    player.y = (world.height - player.size) / 2;
+
+    updateCamera();
+};
+
+mapImage.onerror = function () {
+    console.error("Map image failed to load:", CONFIG.mapImage);
+};
+
+mapImage.src = CONFIG.mapImage;
+
+
 /* CAMERA */
 
 const camera = {
     x: 0,
-    y: 0,
-    locked: true
+    y: 0
 };
+
+const zoom = CONFIG.zoom;
 
 
 /* INPUT */
@@ -108,26 +97,7 @@ const keys = {
 };
 
 
-/* ZOOM CALCULATION */
-
-function calculateZoom() {
-    if (!world.loaded) return;
-
-    const widthZoom =
-        (canvas.width / world.width) * CONFIG.mapOverscan;
-
-    const heightZoom =
-        (canvas.height / world.height) * CONFIG.mapOverscan;
-
-    zoom = Math.max(
-        CONFIG.minimumZoom,
-        widthZoom,
-        heightZoom
-    );
-}
-
-
-/* CAMERA BOUNDARIES */
+/* CAMERA DIMENSIONS */
 
 function getVisibleWorldWidth() {
     return canvas.width / zoom;
@@ -137,35 +107,57 @@ function getVisibleWorldHeight() {
     return canvas.height / zoom;
 }
 
-function clampCamera() {
-    const maxX = Math.max(
-        0,
-        world.width - getVisibleWorldWidth()
-    );
 
-    const maxY = Math.max(
-        0,
-        world.height - getVisibleWorldHeight()
-    );
+/* WORLD BOUNDARIES */
 
-    camera.x = Math.max(0, Math.min(camera.x, maxX));
-    camera.y = Math.max(0, Math.min(camera.y, maxY));
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(value, max));
 }
 
 function clampPlayer() {
-    player.x = Math.max(
+    player.x = clamp(
+        player.x,
         0,
-        Math.min(player.x, world.width - player.size)
+        world.width - player.size
     );
 
-    player.y = Math.max(
+    player.y = clamp(
+        player.y,
         0,
-        Math.min(player.y, world.height - player.size)
+        world.height - player.size
     );
 }
 
 
-/* MOVEMENT */
+/* CONSTANT CAMERA FOLLOW */
+
+function updateCamera() {
+    if (!world.loaded) return;
+
+    const playerCenterX = player.x + player.size / 2;
+    const playerCenterY = player.y + player.size / 2;
+
+    const visibleWidth = getVisibleWorldWidth();
+    const visibleHeight = getVisibleWorldHeight();
+
+    const desiredX = playerCenterX - visibleWidth / 2;
+    const desiredY = playerCenterY - visibleHeight / 2;
+
+    camera.x = clamp(
+        desiredX,
+        0,
+        Math.max(0, world.width - visibleWidth)
+    );
+
+    camera.y = clamp(
+        desiredY,
+        0,
+        Math.max(0, world.height - visibleHeight)
+    );
+}
+
+
+/* PLAYER MOVEMENT */
 
 function updateMovement(deltaTime) {
     let moveX = 0;
@@ -193,39 +185,20 @@ function updateMovement(deltaTime) {
 }
 
 
-/* CAMERA FOLLOW */
-
-function updateCamera() {
-    if (!camera.locked) return;
-
-    // Exact player center
-    const playerCenterX = player.x + player.size / 2;
-    const playerCenterY = player.y + player.size / 2;
-
-    // Camera centers player
-    camera.x = playerCenterX - getVisibleWorldWidth() / 2;
-    camera.y = playerCenterY - getVisibleWorldHeight() / 2;
-
-    // Stop camera at world boundaries
-    clampCamera();
-}
-
-
 /* DRAW MAP */
 
 function drawMap() {
-    if (world.loaded) {
-        ctx.drawImage(
-            mapImage,
-            0,
-            0,
-            world.width,
-            world.height
-        );
-    } else {
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, world.width, world.height);
-    }
+    if (!world.loaded) return;
+
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.drawImage(
+        mapImage,
+        0,
+        0,
+        world.width,
+        world.height
+    );
 }
 
 
@@ -249,51 +222,46 @@ function drawHUD() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-    ctx.fillRect(12, 12, 230, 105);
+    ctx.fillRect(12, 12, 230, 85);
 
     ctx.fillStyle = "white";
     ctx.font = "14px Arial";
 
-    ctx.fillText(
-        "Camera: " + (camera.locked ? "LOCKED" : "UNLOCKED"),
-        24, 35
-    );
-
-    ctx.fillText(
-        "Speed: " + player.speed + " px/s",
-        24, 58
-    );
-
-    ctx.fillText("C: Toggle camera", 24, 82);
-    ctx.fillText("+ / -: Change speed", 24, 102);
+    ctx.fillText("Camera: ALWAYS FOLLOWING", 24, 35);
+    ctx.fillText("Speed: " + player.speed + " px/s", 24, 58);
+    ctx.fillText("P: Set custom speed", 24, 82);
 }
 
 
-/* RENDERING */
+/* MAIN DRAW FUNCTION */
 
 function draw() {
-    // Reset transformations
+    // Reset canvas transformation
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+    // Clear previous frame
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Background
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Apply zoom and camera position
-    ctx.setTransform(
-        zoom,
-        0,
-        0,
-        zoom,
-        -camera.x * zoom,
-        -camera.y * zoom
-    );
+    if (world.loaded) {
+        // Apply zoom and camera position
+        ctx.setTransform(
+            zoom,
+            0,
+            0,
+            zoom,
+            -camera.x * zoom,
+            -camera.y * zoom
+        );
 
-    ctx.imageSmoothingEnabled = false;
+        drawMap();
+        drawPlayer();
+    }
 
-    drawMap();
-    drawPlayer();
-
-    // HUD stays in screen coordinates
+    // Draw HUD independently of camera
     drawHUD();
 }
 
@@ -315,26 +283,54 @@ function decreaseSpeed() {
 }
 
 
+/* CUSTOM SPEED PROMPT */
+
+function setCustomSpeed() {
+    const input = prompt(
+        "Enter your new movement speed (10–1000 px/s):",
+        player.speed
+    );
+
+    if (input === null) return;
+
+    const newSpeed = Number(input);
+
+    if (
+        input.trim() === "" ||
+        !Number.isFinite(newSpeed) ||
+        newSpeed < CONFIG.minimumSpeed ||
+        newSpeed > CONFIG.maximumSpeed
+    ) {
+        alert(
+            "Invalid speed! Enter a number between " +
+            CONFIG.minimumSpeed + " and " +
+            CONFIG.maximumSpeed + "."
+        );
+
+        return;
+    }
+
+    player.speed = newSpeed;
+}
+
+
 /* KEYBOARD EVENTS */
 
-window.addEventListener("keydown", function (event) {
+window.addEventListener("keydown", function(event) {
     const key = event.key.toLowerCase();
 
     if (
         key in keys ||
         key === "+" ||
         key === "=" ||
-        key === "-"
+        key === "-" ||
+        key === "p"
     ) {
         event.preventDefault();
     }
 
     if (key in keys) {
         keys[key] = true;
-    }
-
-    if (key === "c" && !event.repeat) {
-        camera.locked = !camera.locked;
     }
 
     if (
@@ -347,12 +343,26 @@ window.addEventListener("keydown", function (event) {
     if (key === "-" && !event.repeat) {
         decreaseSpeed();
     }
+
+    if (key === "p" && !event.repeat) {
+        setCustomSpeed();
+    }
 });
 
-window.addEventListener("keyup", function (event) {
+
+window.addEventListener("keyup", function(event) {
     const key = event.key.toLowerCase();
 
     if (key in keys) {
+        keys[key] = false;
+    }
+});
+
+
+/* PREVENT STUCK MOVEMENT KEYS */
+
+window.addEventListener("blur", function() {
+    for (const key in keys) {
         keys[key] = false;
     }
 });
@@ -386,7 +396,7 @@ function update(currentTime) {
 
 resizeCanvas();
 
-window.addEventListener("resize", function () {
+window.addEventListener("resize", function() {
     resizeCanvas();
     updateCamera();
 });
