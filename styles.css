@@ -1,21 +1,22 @@
+
 * {
-	box-sizing: border-box;
-	margin: 0 !important;
-	padding: 0 !important;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 html, body {
-	width: 100% !important;
-	height: 100% !important;
-	overflow: hidden; /* Prevents scrollbars. */
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: black;
 }
 
 canvas {
-	display: block; /* Removes default inline spacing */
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100vw;
-	height: 100vh;
-	z-index: 1; /* Moved z-index here where it belongs */
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
 }
